@@ -688,66 +688,124 @@ async function listAllExecutions() {
     try {
         showToast('📋 Loading all executions...', 'info');
         
-        // Tampilkan pesan bahwa fitur ini belum tersedia
-        let content = `
-            <div class="alert alert-warning">
-                <h5><i class="bi bi-exclamation-triangle me-2"></i>Feature Not Available</h5>
-                <p class="mt-3">
-                    The "View All Executions" feature requires additional configuration on the backend.
-                </p>
-                <p class="mb-0">
-                    <small class="text-muted">
-                        To enable this feature, you need to:<br>
-                        1. Add CORS configuration for /executions endpoint in API Gateway<br>
-                        2. Deploy the updated API<br>
-                        3. Configure the Lambda function to handle /executions route
-                    </small>
-                </p>
-            </div>
-            
-            <div class="card mt-4">
-                <div class="card-body">
-                    <h6><i class="bi bi-lightbulb me-2"></i>Alternative Solution</h6>
-                    <p>You can check individual workflow status by:</p>
-                    <ol class="small">
-                        <li>Click the <i class="bi bi-lightning-charge text-info"></i> button next to any order</li>
-                        <li>Or go to AWS Console > Step Functions</li>
-                        <li>Look for state machine: <code>lks-stepfunctions-order-workflow</code></li>
-                    </ol>
+        // Tampilkan loading state
+        document.getElementById('order-detail-content').innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                    <span class="visually-hidden">Loading executions...</span>
                 </div>
+                <p class="mt-3 text-muted">Loading all Step Functions executions...</p>
+            </div>
+        `;
+        
+        document.querySelector('#order-detail-modal .modal-title').textContent = 'Executions List';
+        
+        const data = await apiCall('/executions');
+        console.log('Executions loaded:', data);
+        
+        const executions = data.executions || [];
+        
+        if (executions.length === 0) {
+            document.getElementById('order-detail-content').innerHTML = `
+                <div class="alert alert-info">
+                    <h5><i class="bi bi-info-circle me-2"></i>No Executions Found</h5>
+                    <p class="mt-3 mb-0">No executions found for state machine: <code>lks-stepfunctions-order-workflow</code></p>
+                </div>
+                <div class="mt-4">
+                    <button class="btn btn-outline-secondary" onclick="closeCurrentModal()">
+                        <i class="bi bi-x-circle me-1"></i>Close
+                    </button>
+                </div>
+            `;
+            return;
+        }
+        
+        // Build table
+        let tableRows = executions.map(exec => {
+            const badgeClass = getWorkflowStatusBadgeClass(exec.status);
+            const startDate = exec.start_date ? new Date(exec.start_date).toLocaleString() : 'N/A';
+            const stopDate = exec.stop_date ? new Date(exec.stop_date).toLocaleString() : 'N/A';
+            
+            // Extract order ID if the name format is order-UUID or UUID
+            let orderId = exec.name;
+            if (orderId.startsWith('order-')) {
+                orderId = orderId.substring(6);
+            }
+            
+            return `
+                <tr>
+                    <td><code class="small text-truncate d-inline-block" style="max-width: 150px;" title="${exec.name}">${exec.name}</code></td>
+                    <td><span class="badge ${badgeClass}">${exec.status}</span></td>
+                    <td><small>${startDate}</small></td>
+                    <td><small>${stopDate}</small></td>
+                    <td>
+                        <button class="btn btn-sm btn-info" onclick="checkWorkflowStatus('${orderId}')" title="View Details">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+        
+        let content = `
+            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                <table class="table table-striped table-hover align-middle table-sm">
+                    <thead>
+                        <tr>
+                            <th>Execution Name</th>
+                            <th>Status</th>
+                            <th>Start Date</th>
+                            <th>Stop Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tableRows}
+                    </tbody>
+                </table>
             </div>
             
-            <div class="mt-4">
+            <div class="mt-4 pt-3 border-top d-flex justify-content-between">
                 <button class="btn btn-outline-secondary" onclick="closeCurrentModal()">
                     <i class="bi bi-x-circle me-1"></i>Close
                 </button>
-                <button class="btn btn-outline-primary ms-2" onclick="showSettings()">
-                    <i class="bi bi-gear me-1"></i>Check API Settings
+                <button class="btn btn-primary" onclick="listAllExecutions()">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Refresh
                 </button>
             </div>
         `;
         
         document.getElementById('order-detail-content').innerHTML = content;
-        document.querySelector('#order-detail-modal .modal-title').textContent = 'Executions List';
         
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Error listing executions:', error);
         
         document.getElementById('order-detail-content').innerHTML = `
             <div class="alert alert-danger">
-                <h5><i class="bi bi-exclamation-triangle me-2"></i>Configuration Required</h5>
-                <p class="mt-3">The /executions endpoint is not configured.</p>
+                <h5><i class="bi bi-exclamation-triangle me-2"></i>Error Loading Executions</h5>
+                <p class="mt-3">${error.message}</p>
                 <div class="mt-4">
                     <button class="btn btn-outline-danger" onclick="closeCurrentModal()">
                         <i class="bi bi-x-circle me-1"></i>Close
                     </button>
                     <button class="btn btn-info ms-2" onclick="showSettings()">
-                        <i class="bi bi-gear me-1"></i>API Settings
+                        <i class="bi bi-gear me-1"></i>Check API Settings
                     </button>
                 </div>
             </div>
         `;
     }
+}
+
+function getWorkflowStatusBadgeClass(status) {
+    if (!status) return 'bg-secondary';
+    const statusUpper = status.toUpperCase();
+    if (statusUpper === 'RUNNING') return 'bg-info';
+    if (statusUpper === 'SUCCEEDED') return 'bg-success';
+    if (statusUpper === 'FAILED') return 'bg-danger';
+    if (statusUpper === 'TIMED_OUT') return 'bg-warning';
+    if (statusUpper === 'ABORTED') return 'bg-dark';
+    return 'bg-secondary';
 }
 
 // Add event listeners for modal
@@ -2026,6 +2084,7 @@ window.updateOrderStatus = updateOrderStatus;
 window.submitOrderStatusUpdate = submitOrderStatusUpdate;
 window.deleteOrder = deleteOrder;
 window.checkWorkflowStatus = checkWorkflowStatus;
+window.listAllExecutions = listAllExecutions;
 window.changePage = changePage;
 window.addOrderItem = addOrderItem;
 window.removeOrderItem = removeOrderItem;
