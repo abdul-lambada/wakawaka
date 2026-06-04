@@ -380,7 +380,7 @@ async function loadOrders() {
                             <button class="btn btn-info" onclick="viewOrder('${order.order_id}')" title="View Details">
                                 <i class="bi bi-eye"></i>
                             </button>
-                            <button class="btn btn-warning" onclick="updateOrderStatus('${order.order_id}')" title="Update Status">
+                            <button class="btn btn-warning" onclick="updateOrderStatus('${order.order_id}', '${order.status}')" title="Update Status">
                                 <i class="bi bi-pencil"></i>
                             </button>
                             <button class="btn btn-danger" onclick="deleteOrder('${order.order_id}')" title="Delete Order">
@@ -781,20 +781,85 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Update Order Status
-async function updateOrderStatus(orderId) {
-    const currentStatus = prompt('Current status is: [current]\n\nEnter new status:\n- pending\n- processing\n- completed\n- cancelled\n\nEnter new status:'.replace('[current]', 'unknown'));
-    if (!currentStatus) return;
+function updateOrderStatus(orderId, currentStatus = 'pending') {
+    console.log(`Opening status update modal for order ${orderId}, current status: ${currentStatus}`);
     
-    console.log(`Updating order ${orderId} status to ${currentStatus}`);
+    // Set modal title
+    document.querySelector('#order-detail-modal .modal-title').textContent = 'Update Order Status';
+    
+    // Clean and normalize status
+    const statusVal = (currentStatus || 'pending').toLowerCase();
+    
+    // Build premium modal content
+    const content = `
+        <div class="p-2">
+            <p class="mb-3">Select the new status for Order ID:</p>
+            <div class="mb-4">
+                <code class="fs-6 p-2 bg-light border rounded d-block mb-3 text-center">${orderId}</code>
+            </div>
+            <div class="mb-3">
+                <label for="edit-status-select" class="form-label fw-bold text-muted small uppercase">New Status</label>
+                <select id="edit-status-select" class="form-select form-select-lg">
+                    <option value="pending" ${statusVal === 'pending' ? 'selected' : ''}>Pending</option>
+                    <option value="processing" ${statusVal === 'processing' ? 'selected' : ''}>Processing</option>
+                    <option value="completed" ${statusVal === 'completed' ? 'selected' : ''}>Completed</option>
+                    <option value="cancelled" ${statusVal === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                </select>
+            </div>
+            
+            <div class="alert alert-info mt-4">
+                <i class="bi bi-info-circle-fill me-2"></i>
+                <strong>Note:</strong> Updating order status will update the database instantly.
+            </div>
+
+            <div class="mt-4 pt-3 border-top d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-outline-secondary" onclick="closeCurrentModal()">
+                    <i class="bi bi-x-circle me-1"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-primary" onclick="submitOrderStatusUpdate('${orderId}')">
+                    <i class="bi bi-check-circle me-1"></i>Save Changes
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Set content and show modal
+    document.getElementById('order-detail-content').innerHTML = content;
+    const modalElement = document.getElementById('order-detail-modal');
+    const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+    modal.show();
+}
+
+// Submit Order Status Update
+async function submitOrderStatusUpdate(orderId) {
+    const selectEl = document.getElementById('edit-status-select');
+    if (!selectEl) return;
+    
+    const newStatus = selectEl.value;
+    console.log(`Submitting status update for order ${orderId} to ${newStatus}`);
+    
+    // Disable save button to prevent double click
+    const saveBtn = selectEl.closest('.modal-content').querySelector('.btn-primary');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm role="status" me-1"></span>Saving...';
+    }
     
     try {
-        await apiCall(`/orders/${orderId}`, 'PUT', { status: currentStatus });
+        await apiCall(`/orders/${orderId}`, 'PUT', { status: newStatus });
         showToast('✓ Order status updated successfully', 'success');
+        closeCurrentModal();
         loadOrders();
         loadDashboard();
     } catch (error) {
         console.error('Error updating order:', error);
         showToast('❌ Failed to update order: ' + error.message, 'error');
+        
+        // Re-enable button on error
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Save Changes';
+        }
     }
 }
 
@@ -1958,6 +2023,7 @@ window.clearAllSettings = clearAllSettings;
 window.toggleApiKeyVisibility = toggleApiKeyVisibility;
 window.viewOrder = viewOrder;
 window.updateOrderStatus = updateOrderStatus;
+window.submitOrderStatusUpdate = submitOrderStatusUpdate;
 window.deleteOrder = deleteOrder;
 window.checkWorkflowStatus = checkWorkflowStatus;
 window.changePage = changePage;
