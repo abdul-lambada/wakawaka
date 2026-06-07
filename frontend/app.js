@@ -380,7 +380,7 @@ async function loadOrders() {
                             <button class="btn btn-info" onclick="viewOrder('${order.order_id}')" title="View Details">
                                 <i class="bi bi-eye"></i>
                             </button>
-                            <button class="btn btn-warning" onclick="updateOrderStatus('${order.order_id}', '${order.status}')" title="Update Status">
+                            <button class="btn btn-warning" onclick="updateOrderStatus('${order.order_id}')" title="Update Status">
                                 <i class="bi bi-pencil"></i>
                             </button>
                             <button class="btn btn-danger" onclick="deleteOrder('${order.order_id}')" title="Delete Order">
@@ -688,124 +688,66 @@ async function listAllExecutions() {
     try {
         showToast('📋 Loading all executions...', 'info');
         
-        // Tampilkan loading state
-        document.getElementById('order-detail-content').innerHTML = `
-            <div class="text-center py-5">
-                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
-                    <span class="visually-hidden">Loading executions...</span>
-                </div>
-                <p class="mt-3 text-muted">Loading all Step Functions executions...</p>
-            </div>
-        `;
-        
-        document.querySelector('#order-detail-modal .modal-title').textContent = 'Executions List';
-        
-        const data = await apiCall('/executions');
-        console.log('Executions loaded:', data);
-        
-        const executions = data.executions || [];
-        
-        if (executions.length === 0) {
-            document.getElementById('order-detail-content').innerHTML = `
-                <div class="alert alert-info">
-                    <h5><i class="bi bi-info-circle me-2"></i>No Executions Found</h5>
-                    <p class="mt-3 mb-0">No executions found for state machine: <code>lks-stepfunctions-order-workflow</code></p>
-                </div>
-                <div class="mt-4">
-                    <button class="btn btn-outline-secondary" onclick="closeCurrentModal()">
-                        <i class="bi bi-x-circle me-1"></i>Close
-                    </button>
-                </div>
-            `;
-            return;
-        }
-        
-        // Build table
-        let tableRows = executions.map(exec => {
-            const badgeClass = getWorkflowStatusBadgeClass(exec.status);
-            const startDate = exec.start_date ? new Date(exec.start_date).toLocaleString() : 'N/A';
-            const stopDate = exec.stop_date ? new Date(exec.stop_date).toLocaleString() : 'N/A';
-            
-            // Extract order ID if the name format is order-UUID or UUID
-            let orderId = exec.name;
-            if (orderId.startsWith('order-')) {
-                orderId = orderId.substring(6);
-            }
-            
-            return `
-                <tr>
-                    <td><code class="small text-truncate d-inline-block" style="max-width: 150px;" title="${exec.name}">${exec.name}</code></td>
-                    <td><span class="badge ${badgeClass}">${exec.status}</span></td>
-                    <td><small>${startDate}</small></td>
-                    <td><small>${stopDate}</small></td>
-                    <td>
-                        <button class="btn btn-sm btn-info" onclick="checkWorkflowStatus('${orderId}')" title="View Details">
-                            <i class="bi bi-eye"></i>
-                        </button>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-        
+        // Tampilkan pesan bahwa fitur ini belum tersedia
         let content = `
-            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                <table class="table table-striped table-hover align-middle table-sm">
-                    <thead>
-                        <tr>
-                            <th>Execution Name</th>
-                            <th>Status</th>
-                            <th>Start Date</th>
-                            <th>Stop Date</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${tableRows}
-                    </tbody>
-                </table>
+            <div class="alert alert-warning">
+                <h5><i class="bi bi-exclamation-triangle me-2"></i>Feature Not Available</h5>
+                <p class="mt-3">
+                    The "View All Executions" feature requires additional configuration on the backend.
+                </p>
+                <p class="mb-0">
+                    <small class="text-muted">
+                        To enable this feature, you need to:<br>
+                        1. Add CORS configuration for /executions endpoint in API Gateway<br>
+                        2. Deploy the updated API<br>
+                        3. Configure the Lambda function to handle /executions route
+                    </small>
+                </p>
             </div>
             
-            <div class="mt-4 pt-3 border-top d-flex justify-content-between">
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h6><i class="bi bi-lightbulb me-2"></i>Alternative Solution</h6>
+                    <p>You can check individual workflow status by:</p>
+                    <ol class="small">
+                        <li>Click the <i class="bi bi-lightning-charge text-info"></i> button next to any order</li>
+                        <li>Or go to AWS Console > Step Functions</li>
+                        <li>Look for state machine: <code>lks-stepfunctions-order-workflow</code></li>
+                    </ol>
+                </div>
+            </div>
+            
+            <div class="mt-4">
                 <button class="btn btn-outline-secondary" onclick="closeCurrentModal()">
                     <i class="bi bi-x-circle me-1"></i>Close
                 </button>
-                <button class="btn btn-primary" onclick="listAllExecutions()">
-                    <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                <button class="btn btn-outline-primary ms-2" onclick="showSettings()">
+                    <i class="bi bi-gear me-1"></i>Check API Settings
                 </button>
             </div>
         `;
         
         document.getElementById('order-detail-content').innerHTML = content;
+        document.querySelector('#order-detail-modal .modal-title').textContent = 'Executions List';
         
     } catch (error) {
-        console.error('Error listing executions:', error);
+        console.error('Error:', error);
         
         document.getElementById('order-detail-content').innerHTML = `
             <div class="alert alert-danger">
-                <h5><i class="bi bi-exclamation-triangle me-2"></i>Error Loading Executions</h5>
-                <p class="mt-3">${error.message}</p>
+                <h5><i class="bi bi-exclamation-triangle me-2"></i>Configuration Required</h5>
+                <p class="mt-3">The /executions endpoint is not configured.</p>
                 <div class="mt-4">
                     <button class="btn btn-outline-danger" onclick="closeCurrentModal()">
                         <i class="bi bi-x-circle me-1"></i>Close
                     </button>
                     <button class="btn btn-info ms-2" onclick="showSettings()">
-                        <i class="bi bi-gear me-1"></i>Check API Settings
+                        <i class="bi bi-gear me-1"></i>API Settings
                     </button>
                 </div>
             </div>
         `;
     }
-}
-
-function getWorkflowStatusBadgeClass(status) {
-    if (!status) return 'bg-secondary';
-    const statusUpper = status.toUpperCase();
-    if (statusUpper === 'RUNNING') return 'bg-info';
-    if (statusUpper === 'SUCCEEDED') return 'bg-success';
-    if (statusUpper === 'FAILED') return 'bg-danger';
-    if (statusUpper === 'TIMED_OUT') return 'bg-warning';
-    if (statusUpper === 'ABORTED') return 'bg-dark';
-    return 'bg-secondary';
 }
 
 // Add event listeners for modal
@@ -839,85 +781,20 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Update Order Status
-function updateOrderStatus(orderId, currentStatus = 'pending') {
-    console.log(`Opening status update modal for order ${orderId}, current status: ${currentStatus}`);
+async function updateOrderStatus(orderId) {
+    const currentStatus = prompt('Current status is: [current]\n\nEnter new status:\n- pending\n- processing\n- completed\n- cancelled\n\nEnter new status:'.replace('[current]', 'unknown'));
+    if (!currentStatus) return;
     
-    // Set modal title
-    document.querySelector('#order-detail-modal .modal-title').textContent = 'Update Order Status';
-    
-    // Clean and normalize status
-    const statusVal = (currentStatus || 'pending').toLowerCase();
-    
-    // Build premium modal content
-    const content = `
-        <div class="p-2">
-            <p class="mb-3">Select the new status for Order ID:</p>
-            <div class="mb-4">
-                <code class="fs-6 p-2 bg-light border rounded d-block mb-3 text-center">${orderId}</code>
-            </div>
-            <div class="mb-3">
-                <label for="edit-status-select" class="form-label fw-bold text-muted small uppercase">New Status</label>
-                <select id="edit-status-select" class="form-select form-select-lg">
-                    <option value="pending" ${statusVal === 'pending' ? 'selected' : ''}>Pending</option>
-                    <option value="processing" ${statusVal === 'processing' ? 'selected' : ''}>Processing</option>
-                    <option value="completed" ${statusVal === 'completed' ? 'selected' : ''}>Completed</option>
-                    <option value="cancelled" ${statusVal === 'cancelled' ? 'selected' : ''}>Cancelled</option>
-                </select>
-            </div>
-            
-            <div class="alert alert-info mt-4">
-                <i class="bi bi-info-circle-fill me-2"></i>
-                <strong>Note:</strong> Updating order status will update the database instantly.
-            </div>
-
-            <div class="mt-4 pt-3 border-top d-flex justify-content-end gap-2">
-                <button type="button" class="btn btn-outline-secondary" onclick="closeCurrentModal()">
-                    <i class="bi bi-x-circle me-1"></i>Cancel
-                </button>
-                <button type="button" class="btn btn-primary" onclick="submitOrderStatusUpdate('${orderId}')">
-                    <i class="bi bi-check-circle me-1"></i>Save Changes
-                </button>
-            </div>
-        </div>
-    `;
-    
-    // Set content and show modal
-    document.getElementById('order-detail-content').innerHTML = content;
-    const modalElement = document.getElementById('order-detail-modal');
-    const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
-    modal.show();
-}
-
-// Submit Order Status Update
-async function submitOrderStatusUpdate(orderId) {
-    const selectEl = document.getElementById('edit-status-select');
-    if (!selectEl) return;
-    
-    const newStatus = selectEl.value;
-    console.log(`Submitting status update for order ${orderId} to ${newStatus}`);
-    
-    // Disable save button to prevent double click
-    const saveBtn = selectEl.closest('.modal-content').querySelector('.btn-primary');
-    if (saveBtn) {
-        saveBtn.disabled = true;
-        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm role="status" me-1"></span>Saving...';
-    }
+    console.log(`Updating order ${orderId} status to ${currentStatus}`);
     
     try {
-        await apiCall(`/orders/${orderId}`, 'PUT', { status: newStatus });
+        await apiCall(`/orders/${orderId}`, 'PUT', { status: currentStatus });
         showToast('✓ Order status updated successfully', 'success');
-        closeCurrentModal();
         loadOrders();
         loadDashboard();
     } catch (error) {
         console.error('Error updating order:', error);
         showToast('❌ Failed to update order: ' + error.message, 'error');
-        
-        // Re-enable button on error
-        if (saveBtn) {
-            saveBtn.disabled = false;
-            saveBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Save Changes';
-        }
     }
 }
 
@@ -2081,10 +1958,8 @@ window.clearAllSettings = clearAllSettings;
 window.toggleApiKeyVisibility = toggleApiKeyVisibility;
 window.viewOrder = viewOrder;
 window.updateOrderStatus = updateOrderStatus;
-window.submitOrderStatusUpdate = submitOrderStatusUpdate;
 window.deleteOrder = deleteOrder;
 window.checkWorkflowStatus = checkWorkflowStatus;
-window.listAllExecutions = listAllExecutions;
 window.changePage = changePage;
 window.addOrderItem = addOrderItem;
 window.removeOrderItem = removeOrderItem;
@@ -2092,3 +1967,91 @@ window.createOrder = createOrder;
 window.generateReport = generateReport;
 
 console.log('app.js loaded successfully - Configured for your API');
+
+// ==========================================
+// KATEGORI 2: MACHINE LEARNING INTEGRATION
+// ==========================================
+async function cekPrediksi(event) {
+    if(event) event.preventDefault();
+    console.log('Checking ML prediction...');
+
+    const endpoint = getFromStorage(STORAGE_KEYS.API_ENDPOINT);
+    const apiKey = getFromStorage(STORAGE_KEYS.API_KEY);
+
+    if (!endpoint) {
+        showToast('❌ API Endpoint is missing. Configure Settings first!', 'error');
+        return;
+    }
+
+    // Prepare prediction data
+    let totalQty = 0;
+    document.querySelectorAll('.quantity-input').forEach(input => {
+        if(input.value) totalQty += parseInt(input.value);
+    });
+
+    const totalPriceText = document.getElementById('order-total').textContent;
+    const totalPrice = parseFloat(totalPriceText) || 0;
+    
+    // Average unit price
+    const unitPrice = totalQty > 0 ? (totalPrice / totalQty) : 0;
+
+    // Simulate customer age and prev orders for demo since we don't have them in the simple form
+    const customerAgeDays = Math.floor(Math.random() * 365) + 10;
+    const numPrevOrders = Math.floor(Math.random() * 10);
+
+    const mlApiUrl = endpoint + '/predict';
+
+    try {
+        const btn = document.getElementById('predict-order-btn');
+        if(btn) {
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Analyzing...';
+            btn.disabled = true;
+        }
+
+        const response = await fetch(mlApiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(apiKey ? { 'x-api-key': apiKey } : {})
+            },
+            body: JSON.stringify({
+                quantity: totalQty || 1,
+                unit_price: unitPrice || 100,
+                customer_age_days: customerAgeDays,
+                num_prev_orders: numPrevOrders
+            })
+        });
+
+        const result = await response.json();
+        
+        // Reset button
+        if(btn) {
+            btn.innerHTML = '<i class="bi bi-robot me-2"></i>Cek Prediksi Fraud (AI)';
+            btn.disabled = false;
+        }
+
+        if (response.ok) {
+            const probPct = (result.probability * 100).toFixed(1);
+            if(result.prediction === 'FAILED') {
+                showToast(`🚨 AI ALERT: Tingkat anomali/fraud tinggi (${probPct}%). Transaksi berisiko!`, 'error');
+                alert(`⚠️ PERINGATAN KECERDASAN BUATAN ⚠️\n\nBerdasarkan pola data:\n- Quantity: ${totalQty}\n- Harga Satuan: $${unitPrice.toFixed(2)}\n- Umur Akun: ${customerAgeDays} hari\n- Riwayat Order: ${numPrevOrders}\n\nSistem AI kami mendeteksi tingkat anomali sebesar ${probPct}%.\nSistem merekomendasikan: FAILED / MANUAL REVIEW`);
+            } else {
+                showToast(`✅ AI SAFE: Transaksi terlihat wajar (Tingkat normal: ${probPct}%)`, 'success');
+                alert(`✅ AMAN\n\nSistem AI kami mendeteksi transaksi normal dengan tingkat keyakinan ${probPct}%.\nSistem merekomendasikan: COMPLETED`);
+            }
+        } else {
+            showToast(`❌ ML Error: ${result.message || 'Unknown error'}`, 'error');
+            console.error('ML API Error:', result);
+        }
+
+    } catch (error) {
+        console.error("ML Fetch Error:", error);
+        showToast('❌ Failed to connect to ML API. Check console or CORS.', 'error');
+        const btn = document.getElementById('predict-order-btn');
+        if(btn) {
+            btn.innerHTML = '<i class="bi bi-robot me-2"></i>Cek Prediksi Fraud (AI)';
+            btn.disabled = false;
+        }
+    }
+}
+
